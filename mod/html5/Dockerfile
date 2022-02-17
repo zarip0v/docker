@@ -1,6 +1,11 @@
 FROM node:14.18.1-bullseye-slim AS builder
 
-RUN apt-get update && apt-get install -y wget curl subversion python3 build-essential
+RUN echo "deb http://ftp.us.debian.org/debian testing main contrib non-free" >> /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y git \
+    && apt-get clean all
+
+RUN apt-get update && apt-get install -y wget curl python3 build-essential
 RUN groupadd -g 2000 meteor && useradd -m -u 2001 -g meteor meteor
 
 
@@ -16,11 +21,16 @@ RUN curl -sL https://install.meteor.com?release=$METEOR_VERSION | sed s/--progre
 
 ENV TAG v2.4.0
 RUN cd ~ \
-    && svn checkout https://github.com/bigbluebutton/bigbluebutton/tags/$TAG/bigbluebutton-html5 \
-    && mv ~/bigbluebutton-html5 ~/source \
+    && git clone --filter=blob:none --no-checkout https://github.com/bigbluebutton/bigbluebutton.git \
+    && cd bigbluebutton \
+    && git sparse-checkout set bigbluebutton-html5 \
+    && git checkout tags/$TAG -b docker-build
+
+RUN cd ~ \
+    && mv ~/bigbluebutton/bigbluebutton-html5 ~/source \
     && cd ~/source \
-    && ~/.meteor/meteor npm ci --production \
-    && METEOR_DISABLE_OPTIMISTIC_CACHING=1  ~/.meteor/meteor build --architecture os.linux.x86_64 --directory ~/app \
+    && ~/.meteor/meteor npm install --production \
+    && METEOR_DISABLE_OPTIMISTIC_CACHING=1  ~/.meteor/meteor build --directory ~/app \
     && rm -rf ~/source
 
 RUN cd ~/app/bundle/programs/server \
