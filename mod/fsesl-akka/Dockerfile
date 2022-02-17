@@ -2,33 +2,29 @@ FROM mozilla/sbt:8u212_1.2.8 AS builder
 
 RUN apt-get update && apt-get install -y subversion
 
-# download bbb-common-message
+RUN echo "deb http://ftp.us.debian.org/debian testing main contrib non-free" >> /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y git \
+    && apt-get clean all
+
 ENV TAG_COMMON_MESSAGE v2.4.0
-RUN svn checkout https://github.com/bigbluebutton/bigbluebutton/tags/$TAG_COMMON_MESSAGE/bbb-common-message /bbb-common-message \
-    && rm -rf /bbb-common-message/.svn
+# clone only bbb-common-message and bbb-fsesl-client subfolder
+RUN git clone --filter=blob:none --no-checkout https://github.com/bigbluebutton/bigbluebutton.git \
+    && cd bigbluebutton \
+    && git sparse-checkout set bbb-common-message bbb-fsesl-client akka-bbb-fsesl \
+    && git checkout tags/$TAG_COMMON_MESSAGE -b docker-build
 
-# compile bbb-common-message
-RUN cd /bbb-common-message \
- && ./deploy.sh 
-
-
-# ===================================================
-ENV TAG_FSESL v2.4.0
-RUN svn checkout https://github.com/bigbluebutton/bigbluebutton/tags/$TAG_FSESL/bbb-fsesl-client /bbb-fsesl-client \
-    && rm -rf /bbb-fsesl-client/.svn
-
-RUN cd /bbb-fsesl-client \
+# compile and locally publish bbb-common-message
+RUN cd bigbluebutton/bbb-common-message \
     && ./deploy.sh
 
-
-ENV TAG v2.4.0
-RUN svn checkout https://github.com/bigbluebutton/bigbluebutton/tags/$TAG/akka-bbb-fsesl /source \
-    && rm -rf /source/.svn
+RUN cd bigbluebutton/bbb-fsesl-client \
+    && ./deploy.sh
 
 # compile and unzip bin
-RUN cd /source \
+RUN cd bigbluebutton/akka-bbb-fsesl \
     && sbt universal:packageBin
-RUN unzip /source/target/universal/bbb-fsesl-akka-0.0.2.zip -d /
+RUN unzip bigbluebutton/akka-bbb-fsesl/target/universal/bbb-fsesl-akka-0.0.2.zip -d /
 
 # # ===================================================
 
