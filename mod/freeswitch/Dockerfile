@@ -1,8 +1,13 @@
 FROM debian:bullseye-slim
 
+RUN echo "deb http://ftp.us.debian.org/debian testing main contrib non-free" >> /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y git \
+    && apt-get clean all
+
 # add freeswitch repo
 RUN apt-get update && \
-apt-get install -y --no-install-recommends subversion curl wget ca-certificates gnupg gnupg2 lsb-release unzip && \
+apt-get install -y --no-install-recommends curl wget ca-certificates gnupg gnupg2 lsb-release unzip && \
 wget -O /usr/share/keyrings/freeswitch-archive-keyring.gpg https://files.freeswitch.org/repo/deb/debian-release/freeswitch-archive-keyring.gpg && \
 echo 'deb [signed-by=/usr/share/keyrings/freeswitch-archive-keyring.gpg] http://files.freeswitch.org/repo/deb/debian-release/ bullseye main' > /etc/apt/sources.list.d/freeswitch.list
 
@@ -36,8 +41,10 @@ RUN apt-get update && apt-get install -y \
 # is no other sane way of downloading a single directory via git
 
 ENV TAG v2.3.4
-RUN svn checkout https://github.com/bigbluebutton/bigbluebutton/tags/$TAG/bbb-voice-conference/config/freeswitch/conf /etc/freeswitch \
-    && rm -rf /etc/freeswitch/.svn
+RUN git clone --filter=blob:none --no-checkout https://github.com/bigbluebutton/bigbluebutton.git \
+    && cd bigbluebutton \
+    && git sparse-checkout set bbb-voice-conference/config/freeswitch/conf \
+    && git checkout tags/$TAG -b docker-build
 
 # the current available freeswitch-mod-opusfile is broken,
 # it can't write any .opus files. The fix provided in
@@ -49,10 +56,14 @@ RUN wget -O /usr/lib/freeswitch/mod/mod_opusfile.so https://github.com/bbb-pkg/b
     && wget -O /tmp/libopusenc0_0.2.1-1bbb1_amd64.deb https://launchpad.net/~bigbluebutton/+archive/ubuntu/support/+files/libopusenc0_0.2.1-1bbb1_amd64.deb \
     && dpkg -i /tmp/libopusenc0_0.2.1-1bbb1_amd64.deb \
     && rm /tmp/libopusenc0_0.2.1-1bbb1_amd64.deb
+    
+RUN ls bigbluebutton/bbb-voice-conference/config/freeswitch/conf/
+RUN cp -R bigbluebutton/bbb-voice-conference/config/freeswitch/conf/* /etc/freeswitch
+RUN ls /etc/freeswitch
 
 # add modifications
 COPY ./conf /etc/freeswitch/
-
+RUN ls /etc/freeswitch
 
 COPY ./entrypoint.sh /entrypoint.sh
 ENTRYPOINT /entrypoint.sh
