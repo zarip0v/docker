@@ -1,10 +1,14 @@
 
 FROM ruby:2.5-slim-buster
 
+RUN echo "deb http://ftp.us.debian.org/debian testing main contrib non-free" >> /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y git \
+    && apt-get clean all
+
 # install apt dependencies
 RUN apt-get update && apt-get install -y \
     wget \
-    subversion \
     rsync \
     build-essential \
     libsystemd-dev \
@@ -42,25 +46,19 @@ RUN wget -q https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VE
 
 RUN mkdir -p \
     /usr/local/bigbluebutton \
-    /usr/local/bigbluebutton/core \
     /etc/bigbluebutton
 
 ENV TAG v2.4.0
 
-# add bbb-record-core (lib, scripts and Gemfile)
-RUN cd /usr/local/bigbluebutton/core \
-    && svn checkout https://github.com/bigbluebutton/bigbluebutton/tags/$TAG/record-and-playback/core/lib \
-    && svn checkout https://github.com/bigbluebutton/bigbluebutton/tags/$TAG/record-and-playback/core/scripts \
-    && rm -rf /usr/local/bigbluebutton/core/*/.svn \
-    && wget https://raw.githubusercontent.com/bigbluebutton/bigbluebutton/$TAG/record-and-playback/core/Gemfile.lock \
-    && wget https://raw.githubusercontent.com/bigbluebutton/bigbluebutton/$TAG/record-and-playback/core/Gemfile \
-    && wget https://raw.githubusercontent.com/bigbluebutton/bigbluebutton/$TAG/record-and-playback/core/Rakefile
-
-# add bbb-playback-presentation scripts
-RUN cd /tmp \
-    && svn checkout https://github.com/bigbluebutton/bigbluebutton/tags/$TAG/record-and-playback/presentation/scripts \
-    && rsync -av /tmp/scripts/ /usr/local/bigbluebutton/core/scripts/ \
-    && rm -rf /tmp/scripts
+# clone only bbb-record-core (lib, scripts and Gemfile) and bbb-playback-presentation scripts
+RUN git clone --filter=blob:none --no-checkout https://github.com/bigbluebutton/bigbluebutton.git \
+    && cd bigbluebutton \
+    && git sparse-checkout set bigbluebutton-config/bin/bbb-record record-and-playback/core/Gemfile record-and-playback/core/Gemfile.lock record-and-playback/core/Rakefile record-and-playback/core/lib record-and-playback/core/scripts record-and-playback/presentation/scripts \
+    && git checkout tags/$TAG -b docker-build \
+    && ls record-and-playback/core/* \
+    && cd record-and-playback \
+    && mv core /usr/local/bigbluebutton/ \
+    && rsync -av presentation/scripts/ /usr/local/bigbluebutton/core/scripts/
 
 # install ruby dependencies
 RUN cd /usr/local/bigbluebutton/core \
@@ -78,8 +76,8 @@ RUN sed -i 's|Journald::Logger\.new.*|Logger.new("/var/log/bigbluebutton/recordi
     sed -i 's|Logger\.new.*|Logger.new("/var/log/bigbluebutton/recording.log")|g' /usr/local/bigbluebutton/core/scripts/process/presentation.rb
 
 # add bbb-record with some adjustments so bbb-record works in this environment
-RUN cd /usr/bin \
-    && wget https://raw.githubusercontent.com/bigbluebutton/bigbluebutton/$TAG/bigbluebutton-config/bin/bbb-record \
+RUN mv bigbluebutton/bigbluebutton-config/bin/bbb-record /usr/bin \
+    && cd /usr/bin \
     && chmod +x /usr/bin/bbb-record \
     && sed -i 's/^BBB_WEB.*/BBB_WEB=""/' /usr/bin/bbb-record \
     && sed -i 's/systemctl.*//' /usr/bin/bbb-record \
