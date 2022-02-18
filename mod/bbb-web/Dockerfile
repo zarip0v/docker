@@ -1,11 +1,11 @@
 FROM mozilla/sbt:8u212_1.2.8 AS builder
 
-RUN apt-get update && apt-get install -y subversion
 
+RUN apt-get update -qq && apt-get -y --allow-unauthenticated install libgdiplus libc6-dev
 # upgrade git so we have the sparse checkout and clone with filter feature
 RUN echo "deb http://ftp.us.debian.org/debian testing main contrib non-free" >> /etc/apt/sources.list \
     && apt-get update \
-    && apt-get install -y git \
+    && apt-get install -y --allow-unauthenticated -o Dpkg::Options::="--force-overwrite" git \
     && apt-get clean all
 
 ENV TAG_COMMON_MESSAGE v2.4.0
@@ -35,7 +35,6 @@ ENV PATH="/opt/gradle-6.7/bin:${PATH}"
 RUN cd bigbluebutton/bbb-common-web \
  && ./deploy.sh
 
-# compile bbb-web
 RUN cd bigbluebutton/bigbluebutton-web && grails assemble
 
 # compile pres-checker
@@ -47,7 +46,9 @@ RUN unzip -q bigbluebutton/bigbluebutton-web/build/libs/bigbluebutton-0.10.0.war
 
 # ===================================================
 FROM openjdk:8-jre-slim-bullseye
-
+#RUN cd bigbluebutton/bigbluebutton-web && grails assemble
+#RUN cd bigbluebutton/bigbluebutton-web/pres-checker && gradle resolveDeps
+#RUN unzip -q bigbluebutton/bigbluebutton-web/build/libs/bigbluebutton-0.10.0.war -d /dist
 RUN apt-get update && apt-get install -y \
         wget unzip gosu locales \
         imagemagick xpdf-utils curl
