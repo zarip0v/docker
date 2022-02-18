@@ -2,14 +2,16 @@ FROM debian:bullseye-slim
 
 RUN echo "deb http://ftp.us.debian.org/debian testing main contrib non-free" >> /etc/apt/sources.list \
     && apt-get update \
-    && apt-get install -y git \
+    && apt-get install -y --allow-unauthenticated git \
     && apt-get clean all
 
 # add freeswitch repo
-RUN apt-get update && \
-apt-get install -y --no-install-recommends curl wget ca-certificates gnupg gnupg2 lsb-release unzip && \
+RUN apt-get update --allow-unauthenticated && \
+apt-get install -y --allow-unauthenticated --no-install-recommends gpgv2 gpgv1 gpgv curl wget ca-certificates gnupg gnupg2 lsb-release unzip && \
 wget -O /usr/share/keyrings/freeswitch-archive-keyring.gpg https://files.freeswitch.org/repo/deb/debian-release/freeswitch-archive-keyring.gpg && \
-echo 'deb [signed-by=/usr/share/keyrings/freeswitch-archive-keyring.gpg] http://files.freeswitch.org/repo/deb/debian-release/ bullseye main' > /etc/apt/sources.list.d/freeswitch.list
+echo 'deb [signed-by=/usr/share/keyrings/freeswitch-archive-keyring.gpg] http://files.freeswitch.org/repo/deb/debian-release/ bullseye main' > /etc/apt/sources.list.d/freeswitch.list && \
+echo "deb http://files.freeswitch.org/repo/deb/debian-release/ `lsb_release -sc` main" > /etc/apt/sources.list.d/freeswitch.list && \ 
+echo "deb-src http://files.freeswitch.org/repo/deb/debian-release/ `lsb_release -sc` main" >> /etc/apt/sources.list.d/freeswitch.list 
 
 # install dockerize
 ENV DOCKERIZE_VERSION v0.6.1
@@ -18,7 +20,7 @@ RUN wget -q https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VE
     && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
 # install freeswitch
-RUN apt-get update && apt-get install -y \
+RUN apt-get update --allow-insecure-repositories && apt-get install -y --allow-unauthenticated \
         freeswitch \
         freeswitch-mod-commands \
         freeswitch-mod-conference \
